@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PC City — Healthcare Communication Visualizer",
-  description: "3D healthcare city showing message flows between hospital entities",
+  title: "Coordra — Healthcare Communication Platform",
+  description: "Secure messaging between healthcare providers, visualized as a living city",
 };
 
 export default function RootLayout({
