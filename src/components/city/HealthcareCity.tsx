@@ -14,11 +14,11 @@ import {
   providerToBuilding,
   type Building,
   type StoryStep,
+  type Story,
 } from "./buildings";
-import type { CityProvider } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// Building mesh — top-down city block style
+// Building mesh
 // ---------------------------------------------------------------------------
 function BuildingMesh(props: {
   building: Building;
@@ -42,7 +42,6 @@ function BuildingMesh(props: {
 
   return (
     <group position={building.position}>
-      {/* Building body */}
       <mesh
         ref={meshRef}
         position={[0, h / 2, 0]}
@@ -62,7 +61,6 @@ function BuildingMesh(props: {
         />
       </mesh>
 
-      {/* Hospital cross */}
       {building.type === "hospital" && (
         <>
           <mesh position={[0, h + 0.25, 0]}>
@@ -76,22 +74,20 @@ function BuildingMesh(props: {
         </>
       )}
 
-      {/* Building name */}
       <Text
         position={[0, h + (building.type === "hospital" ? 1 : 0.5), 0]}
-        fontSize={0.35}
+        fontSize={0.32}
         color="white"
         anchorX="center"
         anchorY="bottom"
-        outlineWidth={0.04}
+        outlineWidth={0.03}
         outlineColor="#000"
-        maxWidth={4.5}
+        maxWidth={5}
         textAlign="center"
       >
         {building.label}
       </Text>
 
-      {/* Icon on building face */}
       <Text
         position={[0, h / 2, d / 2 + 0.02]}
         fontSize={0.6}
@@ -111,7 +107,7 @@ function BuildingMesh(props: {
 }
 
 // ---------------------------------------------------------------------------
-// Ms. Jones — the player character! Pokemon-style sprite
+// Ms. Jones — player character
 // ---------------------------------------------------------------------------
 function PlayerCharacter(props: {
   position: THREE.Vector3;
@@ -126,12 +122,8 @@ function PlayerCharacter(props: {
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-
-    // Smooth lerp toward target
     currentPos.current.lerp(props.targetPosition, 0.03);
     groupRef.current.position.copy(currentPos.current);
-
-    // Walk bob animation
     if (props.moving) {
       bobRef.current += delta * 8;
       groupRef.current.position.y = currentPos.current.y + Math.abs(Math.sin(bobRef.current)) * 0.15;
@@ -140,29 +132,17 @@ function PlayerCharacter(props: {
 
   return (
     <group ref={groupRef} position={props.position}>
-      {/* Body */}
       <mesh position={[0, 0.5, 0]}>
         <capsuleGeometry args={[0.2, 0.4, 8, 12]} />
         <meshStandardMaterial color="#06b6d4" emissive="#06b6d4" emissiveIntensity={0.3} />
       </mesh>
-      {/* Head */}
       <mesh position={[0, 1.05, 0]}>
         <sphereGeometry args={[0.22, 12, 12]} />
         <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.15} />
       </mesh>
-      {/* Name above */}
-      <Text
-        position={[0, 1.6, 0]}
-        fontSize={0.28}
-        color="#06b6d4"
-        anchorX="center"
-        anchorY="bottom"
-        outlineWidth={0.03}
-        outlineColor="#000"
-      >
+      <Text position={[0, 1.6, 0]} fontSize={0.28} color="#06b6d4" anchorX="center" anchorY="bottom" outlineWidth={0.03} outlineColor="#000">
         {props.name}
       </Text>
-      {/* Shadow circle on ground */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.35, 16]} />
         <meshStandardMaterial color="#000" transparent opacity={0.3} />
@@ -172,9 +152,9 @@ function PlayerCharacter(props: {
 }
 
 // ---------------------------------------------------------------------------
-// Road paths between buildings
+// Road + Ground
 // ---------------------------------------------------------------------------
-function Road(props: { from: [number, number, number]; to: [number, number, number]; active?: boolean }) {
+function Road(props: { from: [number, number, number]; to: [number, number, number] }) {
   "use no memo";
   const start = new THREE.Vector3(props.from[0], 0.015, props.from[2]);
   const end = new THREE.Vector3(props.to[0], 0.015, props.to[2]);
@@ -182,27 +162,23 @@ function Road(props: { from: [number, number, number]; to: [number, number, numb
   const dir = end.clone().sub(start);
   const length = dir.length();
   const angle = Math.atan2(dir.x, dir.z);
-
   return (
     <mesh position={[mid.x, 0.02, mid.z]} rotation={[-Math.PI / 2, 0, -angle]}>
       <planeGeometry args={[0.8, length]} />
-      <meshStandardMaterial color={props.active ? "#475569" : "#1e293b"} />
+      <meshStandardMaterial color="#1e293b" />
     </mesh>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Ground
-// ---------------------------------------------------------------------------
 function Ground() {
   "use no memo";
   return (
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[50, 50]} />
+        <planeGeometry args={[60, 60]} />
         <meshStandardMaterial color="#0f172a" />
       </mesh>
-      <gridHelper args={[50, 25, "#1a2332", "#111827"]} />
+      <gridHelper args={[60, 30, "#1a2332", "#111827"]} />
     </>
   );
 }
@@ -213,17 +189,15 @@ function Ground() {
 function Scene(props: {
   buildings: Building[];
   activeBuildings: Set<string>;
-  activeRoad: [string, string] | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   playerPos: THREE.Vector3;
   playerTarget: THREE.Vector3;
   playerMoving: boolean;
-  playerName: string;
   showPlayer: boolean;
 }) {
   "use no memo";
-  const { buildings, activeBuildings, activeRoad, selectedId, onSelect, playerPos, playerTarget, playerMoving, playerName, showPlayer } = props;
+  const { buildings, activeBuildings, selectedId, onSelect, playerPos, playerTarget, playerMoving, showPlayer } = props;
 
   const buildingMap = useMemo(() => {
     const map: Record<string, Building> = {};
@@ -231,123 +205,61 @@ function Scene(props: {
     return map;
   }, [buildings]);
 
+  // Roads between all buildings that share a story step
   const roads = useMemo(() => {
     const seen = new Set<string>();
     const result: { from: [number, number, number]; to: [number, number, number]; key: string }[] = [];
-    for (const story of STORIES) {
-      for (const step of story.steps) {
-        const key = [step.from, step.to].sort().join("-");
-        if (!seen.has(key) && buildingMap[step.from] && buildingMap[step.to]) {
-          seen.add(key);
-          result.push({ from: buildingMap[step.from].position, to: buildingMap[step.to].position, key });
+    // Connect all buildings to patient home with roads
+    const patient = buildingMap["patient"];
+    if (!patient) return result;
+    for (const b of buildings) {
+      if (b.id === "patient") continue;
+      const key = ["patient", b.id].sort().join("-");
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ from: patient.position, to: b.position, key });
+      }
+    }
+    // Also connect buildings to each other
+    for (let i = 0; i < buildings.length; i++) {
+      for (let j = i + 1; j < buildings.length; j++) {
+        const a = buildings[i], b = buildings[j];
+        if (a.id === "patient" || b.id === "patient") continue;
+        const dist = Math.hypot(a.position[0] - b.position[0], a.position[2] - b.position[2]);
+        if (dist < 12) { // only connect nearby buildings
+          const key = [a.id, b.id].sort().join("-");
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push({ from: a.position, to: b.position, key });
+          }
         }
       }
     }
     return result;
-  }, [buildingMap]);
-
-  const activeRoadKey = activeRoad ? [...activeRoad].sort().join("-") : null;
+  }, [buildings, buildingMap]);
 
   return (
     <>
       <ambientLight intensity={0.4} />
       <directionalLight position={[8, 25, 8]} intensity={1} castShadow />
       <pointLight position={[0, 15, 0]} intensity={0.2} color="#7c3aed" />
-      <fog attach="fog" args={["#0a0a1a", 35, 65]} />
-
+      <fog attach="fog" args={["#0a0a1a", 40, 70]} />
       <Ground />
-
-      {roads.map((r) => (
-        <Road key={r.key} from={r.from} to={r.to} active={activeRoadKey === r.key} />
-      ))}
-
+      {roads.map((r) => <Road key={r.key} from={r.from} to={r.to} />)}
       {buildings.map((b) => (
         <BuildingMesh
           key={b.id}
           building={b}
           active={activeBuildings.has(b.id)}
           selected={selectedId === b.id}
-          onSelect={() => onSelect(selectedId === b.id ? null : b.id)}
+          onSelect={() => onSelect(b.id)}
         />
       ))}
-
       {showPlayer && (
-        <PlayerCharacter
-          position={playerPos}
-          targetPosition={playerTarget}
-          moving={playerMoving}
-          name={playerName}
-        />
+        <PlayerCharacter position={playerPos} targetPosition={playerTarget} moving={playerMoving} name="Ms. Jones" />
       )}
-
-      <OrbitControls
-        makeDefault
-        minDistance={12}
-        maxDistance={45}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 3}
-        enablePan
-      />
+      <OrbitControls makeDefault minDistance={12} maxDistance={50} minPolarAngle={0.2} maxPolarAngle={Math.PI / 3} enablePan />
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Dialogue box — RPG style
-// ---------------------------------------------------------------------------
-function DialogueBox(props: {
-  step: StoryStep | null;
-  stepNum: number;
-  totalSteps: number;
-  storyTitle: string;
-  patient: string;
-  summary: string;
-  started: boolean;
-  finished: boolean;
-}) {
-  const { step, stepNum, totalSteps, storyTitle, patient, summary, started, finished } = props;
-
-  return (
-    <div className="absolute bottom-28 left-1/2 w-[620px] max-w-[92vw] -translate-x-1/2">
-      <div className="rounded-xl bg-black/85 backdrop-blur-lg border border-white/10 overflow-hidden">
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/5">
-          {started && step ? (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ backgroundColor: step.color }} />
-                <span className="text-xs font-bold text-white">{step.label}</span>
-              </div>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                {stepNum}/{totalSteps}
-              </span>
-            </>
-          ) : (
-            <span className="text-xs font-bold text-white">{storyTitle}</span>
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="px-4 py-3 min-h-[80px]">
-          {!started ? (
-            <>
-              <p className="text-xs text-zinc-400 mb-1">{patient}</p>
-              <p className="text-sm text-zinc-200 leading-relaxed">{summary}</p>
-              <p className="mt-2 text-[10px] text-zinc-600">Press Play to start the story.</p>
-            </>
-          ) : finished ? (
-            <>
-              <p className="text-sm font-semibold text-emerald-400 mb-1">Story Complete</p>
-              <p className="text-xs text-zinc-400">
-                {patient}'s journey through the healthcare system. Press Reset to replay, or pick another story.
-              </p>
-            </>
-          ) : step ? (
-            <p className="text-sm text-zinc-200 leading-relaxed">{step.narration}</p>
-          ) : null}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -360,11 +272,14 @@ export default function HealthcareCity() {
   const [stepIndex, setStepIndex] = useState(-1);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [buildings, setBuildings] = useState<Building[]>([
-    PATIENT_BUILDING, INSURANCE_BUILDING, ...DEFAULT_BUILDINGS,
-  ]);
+  const [buildings, setBuildings] = useState<Building[]>([PATIENT_BUILDING, INSURANCE_BUILDING, ...DEFAULT_BUILDINGS]);
+  const [stories, setStories] = useState<Story[]>(STORIES);
+  const [cityName, setCityName] = useState("Springfield, IL");
+  const [searchCity, setSearchCity] = useState("");
+  const [searchState, setSearchState] = useState("");
+  const [loadingCity, setLoadingCity] = useState(false);
 
-  // Fetch opted-in providers from API
+  // Fetch providers on load
   useEffect(() => {
     fetch("/api/providers")
       .then((r) => r.json())
@@ -374,12 +289,51 @@ export default function HealthcareCity() {
           setBuildings([PATIENT_BUILDING, INSURANCE_BUILDING, ...providerBuildings]);
         }
       })
-      .catch(() => {}); // fall back to defaults
+      .catch(() => {});
   }, []);
 
-  const story = STORIES[storyIndex];
-  const currentStep = stepIndex >= 0 && stepIndex < story.steps.length ? story.steps[stepIndex] : null;
-  const finished = stepIndex >= story.steps.length;
+  // Travel to a new city
+  const travelToCity = useCallback(async () => {
+    if (!searchState) return;
+    setLoadingCity(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchCity) params.set("city", searchCity);
+      params.set("state", searchState);
+      const res = await fetch(`/api/city?${params}`);
+      const data = await res.json();
+      if (data.buildings?.length) {
+        const newBuildings: Building[] = [
+          { ...PATIENT_BUILDING, label: "Ms. Jones (Visiting)", description: `Gloria Jones visiting ${data.location}` },
+          INSURANCE_BUILDING,
+          ...data.buildings.map((b: any) => ({
+            id: b.id,
+            label: b.name,
+            type: b.type,
+            position: b.position,
+            size: [2.5, b.height, 2] as [number, number, number],
+            color: b.color,
+            description: `${b.specialty}. ${b.address.city}, ${b.address.state}. ${b.address.phone || ""}`,
+            npi: b.npi,
+            tagline: b.specialty,
+          })),
+        ];
+        setBuildings(newBuildings);
+        setCityName(data.location);
+        if (data.scenarios?.length) {
+          setStories(data.scenarios);
+          setStoryIndex(0);
+        }
+        setStepIndex(-1);
+        setPlaying(false);
+      }
+    } catch {}
+    setLoadingCity(false);
+  }, [searchCity, searchState]);
+
+  const story = stories[storyIndex];
+  const currentStep = story && stepIndex >= 0 && stepIndex < story.steps.length ? story.steps[stepIndex] : null;
+  const finished = story ? stepIndex >= story.steps.length : false;
 
   const buildingMap = useMemo(() => {
     const map: Record<string, Building> = {};
@@ -387,10 +341,9 @@ export default function HealthcareCity() {
     return map;
   }, [buildings]);
 
-  // Player position — she starts at her home, then walks to each "to" building
   const getPos = useCallback((buildingId: string) => {
     const b = buildingMap[buildingId];
-    if (!b) return new THREE.Vector3(0, 0, 7);
+    if (!b) return new THREE.Vector3(0, 0, 10);
     return new THREE.Vector3(b.position[0], 0, b.position[2]);
   }, [buildingMap]);
 
@@ -406,43 +359,29 @@ export default function HealthcareCity() {
 
   const activeBuildings = useMemo(() => {
     const set = new Set<string>();
-    if (currentStep) {
-      set.add(currentStep.from);
-      set.add(currentStep.to);
-    }
+    if (currentStep) { set.add(currentStep.from); set.add(currentStep.to); }
     return set;
   }, [currentStep]);
 
-  const activeRoad: [string, string] | null = currentStep ? [currentStep.from, currentStep.to] : null;
-
-  // Auto-advance when playing
+  // Auto-advance
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
-
   useEffect(() => {
     if (!playing || !currentStep) return;
-
     timerRef.current = setTimeout(() => {
-      if (stepIndex < story.steps.length - 1) {
-        setStepIndex((s) => s + 1);
-      } else {
-        setStepIndex(story.steps.length); // mark finished
-        setPlaying(false);
-      }
+      if (stepIndex < story.steps.length - 1) setStepIndex((s) => s + 1);
+      else { setStepIndex(story.steps.length); setPlaying(false); }
     }, currentStep.duration * 1000);
-
     return () => clearTimeout(timerRef.current);
   }, [playing, stepIndex, currentStep, story]);
 
   const handlePlay = useCallback(() => {
-    if (stepIndex < 0 || stepIndex >= story.steps.length) {
-      setStepIndex(0);
-    }
+    if (!story) return;
+    if (stepIndex < 0 || stepIndex >= story.steps.length) setStepIndex(0);
     setPlaying(true);
   }, [stepIndex, story]);
 
-  const handlePause = useCallback(() => setPlaying(false), []);
-
   const handleStep = useCallback((dir: number) => {
+    if (!story) return;
     setPlaying(false);
     setStepIndex((s) => {
       const next = s + dir;
@@ -452,60 +391,95 @@ export default function HealthcareCity() {
     });
   }, [story]);
 
-  const handleReset = useCallback(() => {
-    setPlaying(false);
-    setStepIndex(-1);
-  }, []);
+  const handleReset = useCallback(() => { setPlaying(false); setStepIndex(-1); }, []);
 
   const handleStoryChange = useCallback((i: number) => {
-    setPlaying(false);
-    setStoryIndex(i);
-    setStepIndex(-1);
-    setSelected(null);
+    setPlaying(false); setStoryIndex(i); setStepIndex(-1);
   }, []);
 
   const selectedBuilding = selected ? buildings.find((b) => b.id === selected) : null;
 
   return (
     <div className="relative h-screen w-screen bg-[#0a0a1a] overflow-hidden select-none">
-      <Canvas
-        shadows
-        camera={{ position: [0, 28, 18], fov: 40 }}
-        onPointerMissed={() => setSelected(null)}
-      >
+      <Canvas shadows camera={{ position: [0, 28, 22], fov: 40 }} onPointerMissed={() => {}}>
         <Scene
           buildings={buildings}
           activeBuildings={activeBuildings}
-          activeRoad={activeRoad}
           selectedId={selected}
           onSelect={setSelected}
           playerPos={playerStart}
           playerTarget={playerTarget}
           playerMoving={playing && !!currentStep}
-          playerName="Ms. Jones"
           showPlayer={stepIndex >= 0}
         />
       </Canvas>
 
-      {/* Title */}
-      <div className="absolute left-4 top-4">
-        <h1 className="text-lg font-bold text-white tracking-tight pointer-events-none">Healthcare City</h1>
-        <p className="text-[10px] text-zinc-600 pointer-events-none">v1 — Patient Journey Simulator</p>
-        <a
-          href="/shop"
-          className="mt-2 inline-block rounded-lg bg-white/10 border border-white/10 px-3 py-1.5 text-[10px] font-medium text-zinc-300 hover:bg-white/20 transition"
-        >
+      {/* === TOP LEFT: Title + Travel === */}
+      <div className="absolute left-4 top-4 w-56">
+        <h1 className="text-lg font-bold text-white tracking-tight">Healthcare City</h1>
+        <p className="text-[10px] text-zinc-500">{cityName}</p>
+
+        {/* Travel mode */}
+        <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-2.5">
+          <p className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1.5 font-semibold">Travel to a City</p>
+          <div className="flex gap-1.5">
+            <input
+              value={searchCity}
+              onChange={(e) => setSearchCity(e.target.value)}
+              placeholder="City"
+              className="flex-1 rounded bg-white/5 border border-white/10 px-2 py-1 text-[11px] text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30"
+              onKeyDown={(e) => e.key === "Enter" && travelToCity()}
+            />
+            <input
+              value={searchState}
+              onChange={(e) => setSearchState(e.target.value.toUpperCase().slice(0, 2))}
+              placeholder="ST"
+              className="w-10 rounded bg-white/5 border border-white/10 px-1.5 py-1 text-[11px] text-white text-center placeholder:text-zinc-600 focus:outline-none focus:border-white/30"
+              onKeyDown={(e) => e.key === "Enter" && travelToCity()}
+            />
+          </div>
+          <button
+            onClick={travelToCity}
+            disabled={loadingCity || !searchState}
+            className="mt-1.5 w-full rounded bg-white/10 py-1 text-[10px] text-zinc-300 hover:bg-white/20 transition disabled:opacity-30"
+          >
+            {loadingCity ? "Loading..." : "Go"}
+          </button>
+        </div>
+
+        <a href="/shop" className="mt-2 inline-block text-[10px] text-zinc-600 hover:text-white transition">
           + Join City (NPI Lookup)
         </a>
       </div>
 
-      {/* Story picker */}
-      <div className="absolute left-4 top-14 flex flex-col gap-1">
-        {STORIES.map((s, i) => (
+      {/* === TOP RIGHT: Building info (sticky — doesn't close on click-out) === */}
+      {selectedBuilding && (
+        <div className="absolute right-4 top-4 w-60 rounded-xl bg-black/85 p-3.5 text-white backdrop-blur-lg border border-white/10">
+          <div className="flex items-start justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedBuilding.color }} />
+              <h2 className="text-xs font-bold leading-tight">{selectedBuilding.label}</h2>
+            </div>
+            <button onClick={() => setSelected(null)} className="text-zinc-600 hover:text-white text-xs ml-2">x</button>
+          </div>
+          {selectedBuilding.tagline && (
+            <p className="text-[10px] text-zinc-400 italic mb-1">{selectedBuilding.tagline}</p>
+          )}
+          <p className="text-[11px] text-zinc-300 leading-relaxed">{selectedBuilding.description}</p>
+          {selectedBuilding.npi && (
+            <p className="text-[9px] text-zinc-600 font-mono mt-2">NPI {selectedBuilding.npi}</p>
+          )}
+        </div>
+      )}
+
+      {/* === BOTTOM LEFT: Scenario picker (moved from top to avoid overlap) === */}
+      <div className="absolute left-4 bottom-28 flex flex-col gap-1">
+        <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold mb-0.5">Scenarios</p>
+        {stories.map((s, i) => (
           <button
             key={s.id}
             onClick={() => handleStoryChange(i)}
-            className={`rounded-lg px-3 py-1.5 text-left text-[11px] font-medium transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-left text-[11px] font-medium transition-all max-w-[180px] truncate ${
               storyIndex === i
                 ? "bg-white/15 text-white border border-white/20"
                 : "bg-white/5 text-zinc-500 hover:bg-white/10 border border-transparent"
@@ -516,81 +490,60 @@ export default function HealthcareCity() {
         ))}
       </div>
 
-      {/* RPG Dialogue */}
-      <DialogueBox
-        step={currentStep}
-        stepNum={stepIndex + 1}
-        totalSteps={story.steps.length}
-        storyTitle={story.title}
-        patient={story.patient}
-        summary={story.summary}
-        started={stepIndex >= 0}
-        finished={finished}
-      />
-
-      {/* Transport controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
-        <button onClick={handleReset} className="rounded-full bg-white/10 px-3 py-2 text-[11px] text-zinc-300 hover:bg-white/20 transition">
-          Reset
-        </button>
-        <button onClick={() => handleStep(-1)} disabled={stepIndex <= 0} className="rounded-full bg-white/10 px-3 py-2 text-[11px] text-zinc-300 hover:bg-white/20 transition disabled:opacity-25">
-          Prev
-        </button>
-
-        {playing ? (
-          <button onClick={handlePause} className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black hover:bg-zinc-200 transition">
-            Pause
-          </button>
-        ) : (
-          <button onClick={handlePlay} className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black hover:bg-zinc-200 transition">
-            Play
-          </button>
-        )}
-
-        <button onClick={() => handleStep(1)} disabled={!currentStep || stepIndex >= story.steps.length - 1} className="rounded-full bg-white/10 px-3 py-2 text-[11px] text-zinc-300 hover:bg-white/20 transition disabled:opacity-25">
-          Next
-        </button>
-
-        {/* Step dots */}
-        <div className="ml-2 flex gap-1">
-          {story.steps.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => { setPlaying(false); setStepIndex(i); }}
-              className="h-1.5 w-1.5 rounded-full transition-all hover:scale-150"
-              style={{
-                backgroundColor: i === stepIndex ? s.color : i < stepIndex ? s.color + "50" : "#334155",
-              }}
-              title={`${i + 1}. ${s.label}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Building info on click */}
-      {selectedBuilding && (
-        <div className="absolute right-4 top-4 w-60 rounded-xl bg-black/85 p-3.5 text-white backdrop-blur-lg border border-white/10">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selectedBuilding.color }} />
-            <h2 className="text-xs font-bold">{selectedBuilding.label}</h2>
+      {/* === BOTTOM CENTER: Dialogue + Controls === */}
+      {story && (
+        <div className="absolute bottom-16 left-1/2 w-[560px] max-w-[80vw] -translate-x-1/2">
+          <div className="rounded-xl bg-black/85 backdrop-blur-lg border border-white/10 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 bg-white/5">
+              {currentStep ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: currentStep.color }} />
+                    <span className="text-[11px] font-bold text-white">{currentStep.label}</span>
+                  </div>
+                  <span className="text-[9px] text-zinc-500 font-mono">{stepIndex + 1}/{story.steps.length}</span>
+                </>
+              ) : (
+                <span className="text-[11px] font-bold text-white">{story.title}</span>
+              )}
+            </div>
+            <div className="px-4 py-2.5 min-h-[56px]">
+              {stepIndex < 0 ? (
+                <>
+                  <p className="text-[10px] text-zinc-400 mb-0.5">{story.patient}</p>
+                  <p className="text-[12px] text-zinc-200 leading-relaxed">{story.summary}</p>
+                </>
+              ) : finished ? (
+                <p className="text-[12px] text-emerald-400 font-semibold">Story complete. Press Reset to replay.</p>
+              ) : currentStep ? (
+                <p className="text-[12px] text-zinc-200 leading-relaxed">{currentStep.narration}</p>
+              ) : null}
+            </div>
           </div>
-          {selectedBuilding.tagline && (
-            <p className="text-[10px] text-zinc-400 italic mb-1">{selectedBuilding.tagline}</p>
-          )}
-          <p className="text-[11px] text-zinc-300 leading-relaxed">{selectedBuilding.description}</p>
-          {selectedBuilding.npi && (
-            <p className="text-[9px] text-zinc-600 font-mono mt-2">NPI {selectedBuilding.npi}</p>
-          )}
-          {selectedBuilding.npi && (
-            <a
-              href={`/shop`}
-              className="mt-2 inline-block text-[10px] text-zinc-500 hover:text-white transition"
-            >
-              Customize this building &rarr;
-            </a>
-          )}
         </div>
       )}
+
+      {/* Transport */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+        <button onClick={handleReset} className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] text-zinc-300 hover:bg-white/20 transition">Reset</button>
+        <button onClick={() => handleStep(-1)} disabled={stepIndex <= 0} className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] text-zinc-300 hover:bg-white/20 transition disabled:opacity-25">Prev</button>
+        {playing ? (
+          <button onClick={() => setPlaying(false)} className="rounded-full bg-white px-5 py-2 text-xs font-bold text-black hover:bg-zinc-200 transition">Pause</button>
+        ) : (
+          <button onClick={handlePlay} className="rounded-full bg-white px-5 py-2 text-xs font-bold text-black hover:bg-zinc-200 transition">Play</button>
+        )}
+        <button onClick={() => handleStep(1)} disabled={!currentStep || stepIndex >= (story?.steps.length ?? 0) - 1} className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] text-zinc-300 hover:bg-white/20 transition disabled:opacity-25">Next</button>
+        {story && (
+          <div className="ml-1 flex gap-0.5">
+            {story.steps.map((s, i) => (
+              <button key={s.id} onClick={() => { setPlaying(false); setStepIndex(i); }}
+                className="h-1.5 w-1.5 rounded-full transition-all hover:scale-150"
+                style={{ backgroundColor: i === stepIndex ? s.color : i < stepIndex ? s.color + "50" : "#334155" }}
+                title={`${i + 1}. ${s.label}`} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
