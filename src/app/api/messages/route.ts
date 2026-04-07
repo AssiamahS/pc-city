@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
+import { messages, type CityMessage } from "../data";
 
-export interface CityMessage {
-  id: string;
-  from: string;
-  to: string;
-  fromRole: string;
-  toRole: string;
-  body: string;
-  priority: "normal" | "priority" | "urgent";
-  timestamp: string;
-  buildingId?: string;
-}
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const patientId = searchParams.get("patientId");
+  const buildingId = searchParams.get("buildingId");
 
-// In-memory store (replace with DB later)
-const messages: CityMessage[] = [];
+  let filtered = messages;
+  if (patientId) filtered = filtered.filter((m) => m.patientId === patientId);
+  if (buildingId) filtered = filtered.filter((m) => m.buildingId === buildingId);
 
-export async function GET() {
-  return NextResponse.json({ messages });
+  return NextResponse.json({ messages: filtered });
 }
 
 export async function POST(req: Request) {
@@ -24,7 +18,6 @@ export async function POST(req: Request) {
   msg.id = msg.id || crypto.randomUUID();
   msg.timestamp = msg.timestamp || new Date().toISOString();
   messages.push(msg);
-  // Keep last 200
-  if (messages.length > 200) messages.splice(0, messages.length - 200);
+  if (messages.length > 500) messages.splice(0, messages.length - 500);
   return NextResponse.json({ ok: true, message: msg }, { status: 201 });
 }

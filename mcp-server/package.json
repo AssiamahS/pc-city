@@ -1,0 +1,9 @@
+{
+  "name": "pc-city-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.mjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}
