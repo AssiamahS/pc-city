@@ -69,6 +69,51 @@ export function taxonomyToType(desc: string): CityProvider["type"] {
   return "doctor";
 }
 
+// Jurisdiction — drives consent, licensure, and compliance UI per patient location.
+// Patient-centric: evaluated per session based on where the patient currently is.
+// Source of truth: src/data/jurisdictions.ts. Treat as draft until attorney-reviewed.
+export interface Jurisdiction {
+  code: string;           // "NJ", "NY", "ON", "QC"
+  name: string;           // "New Jersey"
+  country: "US" | "CA";
+  federalFloor: "HIPAA" | "PIPEDA";
+
+  // Breach notification to affected individuals
+  breach: {
+    deadlineDays: number;      // days from discovery
+    method: ("mail" | "email" | "substitute")[];
+    privateRightOfAction: boolean;
+  };
+
+  // Consent model at intake
+  consent: {
+    model: "opt-in" | "opt-out" | "implied";
+    minorAge: number;          // age of medical consent without parent
+    specialCategories: ("hiv" | "mental_health" | "substance_use" | "reproductive" | "genetic")[];
+  };
+
+  // Clinician licensure / compact membership — drives whether a provider
+  // licensed in another state can treat a patient currently in this state.
+  licensure: {
+    compactsJoined: ("IMLC" | "PSYPACT" | "NLC" | "PTC" | "ASLP-IC")[];
+    telehealthControlledSubstances: boolean; // can prescribe Schedule II-V via telehealth
+  };
+
+  // Record-request constraints
+  records: {
+    responseDays: number;      // days to fulfill a patient's request
+    feeCapUsd?: number;        // per-page cap, if set
+  };
+
+  // Freeform notes for UI / legal context
+  notes?: string;
+
+  // Review state — NEVER ship to production without attorney signoff per row.
+  reviewStatus: "draft" | "attorney-reviewed";
+  reviewedAt?: string;         // ISO date
+  reviewedBy?: string;
+}
+
 export function formatProviderName(result: NPIResult): string {
   if (result.enumeration_type === "NPI-2") {
     return result.basic.organization_name || "Unknown Organization";
